@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Literal, Optional
 from pydantic.types import UUID
+from datetime import date
 
 
 db_path = Path("data/trades.db")
@@ -18,12 +19,12 @@ def create_tables():
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS client_orders (
-        order_id TEXT PRIMARY KEY,
+        order_id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_id TEXT,
-        symbol TEXT,
+        isin TEXT,
         quantity INTEGER,
-        order_price REAL,
-        order_date TEXT
+        buy_sell TEXT,
+        order_date date
     );
     """
     )
@@ -31,23 +32,21 @@ def create_tables():
     cursor.execute("PRAGMA table_info(trades);")
     columns = [info[1] for info in cursor.fetchall()]
     if "order_date" not in columns:
-        cursor.execute(
-            "ALTER TABLE trades ADD COLUMN order_date TEXT DEFAULT '6/12/2024';"
-        )
+        cursor.execute("ALTER TABLE trades ADD COLUMN order_date DATE;")
 
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS broker_trades (
-        deal_date TEXT,
+        trade_id TEXT PRIMARY KEY,
+        deal_date date,
         party_code TEXT,
-        instrument TEXT,
         isin TEXT,
-        buy_sell_flag TEXT,
+        buy_sell TEXT,
         quantity INTEGER,
         cost REAL,
         net_amount REAL,
-        brokerage_amount REAL,
-        settlement_date TEXT,
+        brokerage REAL,
+        settlement_date date,
         stt REAL,
         exchange_code TEXT,
         depository_code TEXT
@@ -73,8 +72,8 @@ def create_tables():
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS tasks (
-        task_id TEXT PRIMARY KEY default uuid,
-        status TEXT,
+        task_id TEXT PRIMARY KEY,
+        status TEXT CHECK(status IN ('pending', 'failed', 'success')),
         reason TEXT DEFAULT NULL
     );
     """
@@ -147,6 +146,20 @@ def fetch_client_orders() -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing client orders.
     """
+    column_mapping = {
+        "UCC": "client_id",
+        "ISIN": "isin",
+        "Direction": "buy_sell",
+        "Quantity": "quantity",
+    }
+
     with sqlite3.connect(db_path) as conn:
-        df = pd.read_sql_query("SELECT * FROM client_orders", conn)
+        df = pd.read_sql_query("SELECT * FROM trades;", conn)
+        df.drop(columns=["Ticker"], inplace=True)
+        df = df.rename(columns=column_mapping)
+        df[column_mapping["Direction"]] = df[column_mapping["Direction"]].map(
+            {"Buy": "B", "Sell": "S"}
+        )
+        df["order_date"] = date(2024, 6, 12)
+
     return df

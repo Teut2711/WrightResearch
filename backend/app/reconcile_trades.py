@@ -27,13 +27,13 @@ def reconcile_trades(
     reconciled_trades = []
 
     broker_trades = broker_trades.sort_values(
-        by=["Buy/Sell Flag", "Cost"], ascending=[True, True]
+        by=["buy_sell", "cost"], ascending=[True, True]
     )
 
     grouped_data = group_orders_and_trades(client_orders, broker_trades)
 
-    for (symbol, date), (client_group, broker_group) in grouped_data.items():
-        reconciled_trades += reconcile_group(client_group, broker_group, symbol)
+    for (isin, date), (client_group, broker_group) in grouped_data.items():
+        reconciled_trades += reconcile_group(client_group, broker_group, isin)
 
     return pd.DataFrame(reconciled_trades)
 
@@ -52,13 +52,14 @@ def group_orders_and_trades(
         dict: A dictionary where keys are tuples of (symbol, order_date) and values are tuples of
               (client_group, broker_group).
     """
-    client_grouped = client_orders.groupby(["ISIN", "order_date"])
-    broker_grouped = broker_trades.groupby(["Instrument", "Deal Date"])
+    client_grouped = client_orders.groupby(by=["isin", "order_date"])
+    broker_grouped = broker_trades.groupby(by=["isin", "deal_date"])
 
     grouped_data = {}
-    for (symbol, date), client_group in client_grouped:
-        broker_group = broker_grouped.get_group((symbol, date), pd.DataFrame())
-        grouped_data[(symbol, date)] = (client_group, broker_group)
+    for (isin, date), client_group in client_grouped:
+        if (isin, date) in broker_grouped.groups:
+            broker_group = broker_grouped.get_group((isin, date))
+            grouped_data[(isin, date)] = (client_group, broker_group)
 
     return grouped_data
 
@@ -80,10 +81,10 @@ def reconcile_group(
     reconciled_trades = []
     for _, trade in broker_group.iterrows():
         quantity, price, broker_fee, stt = (
-            trade["Quantity"],
-            trade["Cost"],
-            trade["Brokerage Amount"],
-            trade["STT"],
+            trade["quantity"],
+            trade["cost"],
+            trade["brokerage"],
+            trade["stt"],
         )
 
         matching_orders = client_group[

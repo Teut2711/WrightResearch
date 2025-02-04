@@ -31,7 +31,8 @@ async def read_root():
 @app.get("/run-reconciliation/")
 async def run_reconciliation_endpoint(background_tasks: BackgroundTasks):
     task_id = str(uuid.uuid4())
-    background_tasks.add_task(run_reconciliation, task_id)
+    # background_tasks.add_task(
+    run_reconciliation(task_id)
     return {"task_id": task_id}
 
 

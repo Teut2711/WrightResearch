@@ -1,5 +1,5 @@
 # README.md
-
+NOTE: Put gmail username and "app" password(https://support.google.com/mail/answer/185833?hl=en)  to check mail subjects in logs
 # FastAPI Application
 
 This is a FastAPI application that serves as an example project.

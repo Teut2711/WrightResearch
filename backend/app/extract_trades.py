@@ -5,7 +5,7 @@ import mailparser
 import io
 from typing import Optional
 
-eml_dir: Path = Path("data")
+eml_dir: Path = Path("data/emls")
 
 column_mapping = {
     "Deal Date": "deal_date",
@@ -67,6 +67,7 @@ def extract_excel_from_eml() -> Optional[pd.DataFrame]:
 
                     df.dropna(how="all", axis=1, inplace=True)
                     all_dfs.append(df)
+        # eml_file.unlink()
 
     if all_dfs:
         return pd.concat(all_dfs, ignore_index=True)

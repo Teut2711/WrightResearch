@@ -1,39 +1,55 @@
 import imaplib
 import email
+import os
 from email.header import decode_header
+from dotenv import load_dotenv
+import logging
+
+# Load environment variables from a .env file
+load_dotenv()
+
+# Gmail IMAP settings
+IMAP_SERVER = os.getenv("IMAP_SERVER", "imap.gmail.com")
+IMAP_PORT = int(os.getenv("IMAP_PORT", 993))
+USERNAME = os.getenv("IMAP_USERNAME")
+PASSWORD = os.getenv("IMAP_PASSWORD")
+SAVE_DIR = os.getenv("SAVE_DIR", "data/emls")
+
+# Configure logging
+logger = logging.getLogger("uvicorn")
 
 
-def fetch_eml_files_from_inbox(
-    imap_server, imap_port, username, password, mailbox="inbox"
-):
-    """
-    Fetch .eml files from an email inbox using IMAP and save them locally.
+def decode_mime_words(s):
+    """Decode MIME-encoded words in email headers."""
+    decoded = decode_header(s)
+    return "".join(
+        part.decode(enc or "utf-8") if isinstance(part, bytes) else part
+        for part, enc in decoded
+    )
 
-    Parameters:
-    - imap_server: str - IMAP server address
-    - imap_port: int - IMAP server port (usually 993 for SSL)
-    - username: str - Email account username
-    - password: str - Email account password
-    - mailbox: str - Mailbox to fetch emails from (default: 'inbox')
 
-    Returns:
-    - List of saved attachment filenames
-    """
-    saved_files = []
+def fetch_gmail_emails(limit=10):
+    """Fetch up to `limit` unread emails and save them as .eml files."""
+
+    logger.info("Fetching emails from inbox...")
+
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+
     try:
-        mail = imaplib.IMAP4_SSL(imap_server, imap_port)
-        mail.login(username, password)
+        mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
+        mail.login(USERNAME, PASSWORD)
+        mail.select("inbox")
 
-        mail.select(mailbox)
-
-        status, messages = mail.search(None, "ALL")
+        # Search for unread emails
+        status, messages = mail.search(None, "UNSEEN")
         if status != "OK":
-            print("Failed to search emails.")
-            return saved_files
+            logger.info("No unread emails found.")
+            return
 
-        message_ids = messages[0].split()
+        msg_ids = messages[0].split()[:limit]
 
-        for msg_id in message_ids:
+        for msg_id in msg_ids:
             status, msg_data = mail.fetch(msg_id, "(RFC822)")
             if status != "OK":
                 continue
@@ -41,33 +57,19 @@ def fetch_eml_files_from_inbox(
             for response_part in msg_data:
                 if isinstance(response_part, tuple):
                     msg = email.message_from_bytes(response_part[1])
+                    subject = decode_mime_words(msg["Subject"])
+                    filename = os.path.join(SAVE_DIR, f"{msg_id.decode()}.eml")
 
-                    if msg.is_multipart():
-                        for part in msg.walk():
-                            content_disposition = str(part.get("Content-Disposition"))
-                            if "attachment" in content_disposition:
-                                filename = part.get_filename()
-                                if filename:
-                                    print(f"Downloading attachment: {filename}")
-                                    with open(filename, "wb") as f:
-                                        f.write(part.get_payload(decode=True))
-                                    saved_files.append(filename)
-                    else:
-                        pass
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        # Logout from the server
+                    # Save email as .eml
+                    with open(filename, "wb") as f:
+                        f.write(response_part[1])
+
+                    logger.info(f"Saved: {filename} (Subject: {subject})")
+
         mail.logout()
+    except Exception as e:
+        logger.error(f"Error: {e}")
 
-    return saved_files
 
-
-# Dummy credentials and IMAP server settings
-IMAP_SERVER = "imap.mail.example.com"
-IMAP_PORT = 993
-USERNAME = "your_email@example.com"
-PASSWORD = "your_password"
-
-# Call the function
-saved_files = fetch_eml_files_from_inbox(IMAP_SERVER, IMAP_PORT, USERNAME, PASSWORD)
+# Fetch only 10 emails
+fetch_gmail_emails(10)

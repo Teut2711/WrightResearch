@@ -31,8 +31,7 @@ async def read_root():
 @app.get("/run-reconciliation/")
 async def run_reconciliation_endpoint(background_tasks: BackgroundTasks):
     task_id = str(uuid.uuid4())
-    # background_tasks.add_task(
-    run_reconciliation(task_id)
+    background_tasks.add_task(run_reconciliation, task_id)
     return {"task_id": task_id}
 
 
@@ -52,7 +51,8 @@ async def get_task_status(task_id: str):
 
 @app.get("/download-report/{report_type}")
 async def download_report(report_type: ReportType):
-    report_path = Path(__file__).parent / "data" / report_type.value
+    report_path = Path("data") / "generated" / report_type.value
+
     if report_path.exists():
         return FileResponse(
             report_path,

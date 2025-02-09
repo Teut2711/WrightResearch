@@ -1,12 +1,14 @@
-version: '3.8'
 
 services:
   web:
+    container_name: wright_research_web
+    image: wright_research_web:latest
     build:
       context: ./backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/backend
+    env_file:
+      - ../.env
     environment:
       - ENV=development
+      - DEBUG=True

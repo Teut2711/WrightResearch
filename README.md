@@ -1,4 +1,4 @@
-# my-fastapi-app/my-fastapi-app/README.md
+# README.md
 
 # FastAPI Application
 

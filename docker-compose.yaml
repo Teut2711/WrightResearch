@@ -7,8 +7,12 @@ services:
       context: ./backend
     ports:
       - "8000:8000"
-    env_file:
-      - ../.env
     environment:
       - ENV=development
       - DEBUG=True
+      - IMAP_SERVER=imap.gmail.com
+      - IMAP_PORT=993
+      - IMAP_USERNAME=
+      - IMAP_PASSWORD=
+      - SAVE_DIR=data/emls
+# command: sleep infinity 
